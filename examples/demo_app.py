@@ -15,7 +15,7 @@ st.set_page_config(page_title="StatefulRAG: Clinical Triage", layout="wide")
 def load_engine():
     model = SentenceTransformer('all-MiniLM-L6-v2')
     MOCK_KB = [
-        {"content": "Cardiology: Patient presents with acute chest pain radiating to the left arm. High risk of myocardial infarction."},
+        {"content": "Cardiology: Patient presents with acute chest pain radiating to the left arm. High risk of myocardial infarction. Heart rate may be elevated or irregular."},
         {"content": "Cardiology: EKG shows ST elevation. Cardiac troponin levels are elevated. Immediate intervention required."},
         {"content": "Dermatology: Patient complains of an itchy red rash on the leg or foot, consistent with contact dermatitis or eczema."},
         {"content": "Dermatology: Treatment for contact dermatitis includes topical hydrocortisone cream and avoiding allergens."}
