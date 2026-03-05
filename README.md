@@ -14,7 +14,7 @@
 
 StatefulRAG is the official open-source implementation of the caching and routing architecture proposed in the research paper: **"Stateful, Multilingual Medical Graph-RAG Framework for Sustainable and Iterative Clinical Triage"** (Kamalakannan et al., 2026).
 
-While originally designed to solve critical bottlenecks in clinical decision support systems (CDSS)—specifically **extreme system latency**, **cross-lingual AI hallucinations**, and **unstructured generative guessing**—this library abstracts those solutions into a **domain-agnostic framework**. Whether you are building medical triage agents, legal research assistants, or customer support bots, StatefulRAG provides a strictly auditable, highly constrained, and environmentally sustainable ("Green AI") memory layer for multi-turn conversations.
+While originally designed to solve critical bottlenecks in clinical decision support systems (CDSS) specifically **extreme system latency**, **cross-lingual AI hallucinations**, and **unstructured generative guessing**, this library abstracts those solutions into a **domain-agnostic framework**. Whether you are building medical triage agents, legal research assistants, or customer support bots, StatefulRAG provides a strictly auditable, highly constrained, and environmentally sustainable ("Green AI") memory layer for multi-turn conversations.
 
 **Authors & Researchers:**
 - **Naveen Kamalakannan** (TechZilla Solutions)
@@ -56,7 +56,7 @@ Derived from our published clinical triage research:
 
 ### Installation
 
-**Core framework** (lightweight — SQLAlchemy, pgvector, NumPy, LangChain, LlamaIndex):
+**Core framework** (lightweight - SQLAlchemy, pgvector, NumPy, LangChain, LlamaIndex):
 
 ```bash
 pip install stateful-rag
