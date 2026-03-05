@@ -1,5 +1,7 @@
 # 🩺 StatefulRAG
 
+![StatefulRAG Doctor Dashboard](docs/doctor_dashboard_screenshot.png)
+
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![PostgreSQL + pgvector](https://img.shields.io/badge/PostgreSQL-pgvector-blue.svg)](https://github.com/pgvector/pgvector)
@@ -105,11 +107,12 @@ docs = lc_retriever.invoke("Is my heart rate normal?")    # Turn 2: Fast Cache H
 Swap out the `InMemoryStateStore` for persistent, scalable caching across server restarts.
 
 ```python
-from stateful_rag.stores.postgres import PostgresStateStore
+from stateful_rag.stores import PostgresStateStore
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-engine = create_engine("postgresql+psycopg://user:pass@localhost:5432/rag_state")
+# Note: Use os.environ.get("DATABASE_URL") in real production environments!
+engine = create_engine("postgresql+psycopg://rag_user:rag_password@localhost:5432/rag_state")
 db_session = sessionmaker(bind=engine)()
 
 production_store = PostgresStateStore(db_session=db_session)
@@ -122,8 +125,8 @@ production_store = PostgresStateStore(db_session=db_session)
 Run the Streamlit UI locally to visualize the "Context Drift" safety mechanism in real-time:
 
 ```bash
-git clone https://github.com/nvnrlz/stateful_rag.git
-cd stateful_rag
+git clone https://github.com/yourusername/stateful-rag.git
+cd stateful-rag
 pip install -e ".[demo]"
 streamlit run examples/demo_app.py
 ```
