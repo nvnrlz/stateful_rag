@@ -1,7 +1,5 @@
 # 🩺 StatefulRAG
 
-![StatefulRAG Doctor Dashboard](docs/doctor_dashboard_screenshot.png)
-
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![PostgreSQL + pgvector](https://img.shields.io/badge/PostgreSQL-pgvector-blue.svg)](https://github.com/pgvector/pgvector)
@@ -12,7 +10,7 @@
 
 ---
 
-## � About
+## 📖 About
 
 StatefulRAG is the official open-source implementation of the caching and routing architecture proposed in the research paper: **"Stateful, Multilingual Medical Graph-RAG Framework for Sustainable and Iterative Clinical Triage"** (Kamalakannan et al., 2026).
 
@@ -25,7 +23,7 @@ While originally designed to solve critical bottlenecks in clinical decision sup
 
 ---
 
-## �🚨 The Problem: Multi-Turn RAG is Unsustainable
+## 🚨 The Problem: Multi-Turn RAG is Unsustainable
 
 Standard conversational RAG agents are **stateless**. For every multi-turn follow-up question a user asks, the system must re-embed the entire chat history and execute a massive $\mathcal{O}(N)$ similarity search across millions of vectors.
 
@@ -67,7 +65,7 @@ pip install stateful-rag
 **With demo extras** (adds Sentence-Transformers + Streamlit for running examples):
 
 ```bash
-pip install stateful-rag[demo]
+pip install "stateful-rag[demo]"
 ```
 
 ### 1. Framework Integrations (LangChain & LlamaIndex)
@@ -112,7 +110,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 # Note: Use os.environ.get("DATABASE_URL") in real production environments!
-engine = create_engine("postgresql+psycopg://rag_user:rag_password@localhost:5432/rag_state")
+engine = create_engine("postgresql+psycopg://rag_user:rag_password@localhost:5433/rag_state")
 db_session = sessionmaker(bind=engine)()
 
 production_store = PostgresStateStore(db_session=db_session)
@@ -125,7 +123,7 @@ production_store = PostgresStateStore(db_session=db_session)
 Run the Streamlit UI locally to visualize the "Context Drift" safety mechanism in real-time:
 
 ```bash
-git clone https://github.com/yourusername/stateful-rag.git
+git clone https://github.com/naveenkamalakannan/stateful-rag.git
 cd stateful-rag
 pip install -e ".[demo]"
 streamlit run examples/demo_app.py
