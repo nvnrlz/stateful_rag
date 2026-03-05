@@ -56,8 +56,16 @@ Derived from our published clinical triage research:
 
 ### Installation
 
+**Core framework** (lightweight — SQLAlchemy, pgvector, NumPy, LangChain, LlamaIndex):
+
 ```bash
 pip install stateful-rag
+```
+
+**With demo extras** (adds Sentence-Transformers + Streamlit for running examples):
+
+```bash
+pip install stateful-rag[demo]
 ```
 
 ### 1. Framework Integrations (LangChain & LlamaIndex)
@@ -116,7 +124,7 @@ Run the Streamlit UI locally to visualize the "Context Drift" safety mechanism i
 ```bash
 git clone https://github.com/nvnrlz/stateful_rag.git
 cd stateful_rag
-pip install -e .
+pip install -e ".[demo]"
 streamlit run examples/demo_app.py
 ```
 
