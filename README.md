@@ -10,7 +10,20 @@
 
 ---
 
-## 🚨 The Problem: Multi-Turn RAG is Unsustainable
+## � About
+
+StatefulRAG is the official open-source implementation of the caching and routing architecture proposed in the research paper: **"Stateful, Multilingual Medical Graph-RAG Framework for Sustainable and Iterative Clinical Triage"** (Kamalakannan et al., 2026).
+
+While originally designed to solve critical bottlenecks in clinical decision support systems (CDSS)—specifically **extreme system latency**, **cross-lingual AI hallucinations**, and **unstructured generative guessing**—this library abstracts those solutions into a **domain-agnostic framework**. Whether you are building medical triage agents, legal research assistants, or customer support bots, StatefulRAG provides a strictly auditable, highly constrained, and environmentally sustainable ("Green AI") memory layer for multi-turn conversations.
+
+**Authors & Researchers:**
+- **Naveen Kamalakannan** (TechZilla Solutions)
+- **Ankita Jogekar** (Independent Researcher)
+- **Umaima Haider** (University of East London)
+
+---
+
+## �🚨 The Problem: Multi-Turn RAG is Unsustainable
 
 Standard conversational RAG agents are **stateless**. For every multi-turn follow-up question a user asks, the system must re-embed the entire chat history and execute a massive $\mathcal{O}(N)$ similarity search across millions of vectors.
 
@@ -66,7 +79,7 @@ core_retriever = StatefulRetriever(
     state_store=store,
     main_retriever_fn=my_pinecone_search,
     embed_fn=my_openai_embedder,
-    drift_threshold=0.85  # Safety threshold
+    drift_threshold=0.35  # Safety threshold
 )
 
 # 3. Wrap it for LangChain LCEL!
@@ -75,8 +88,8 @@ lc_retriever = StatefulLangChainRetriever(
     session_id="user_123"
 )
 
-docs = lc_retriever.invoke("I have chest pain")       # Turn 1: Slow DB Search
-docs = lc_retriever.invoke("Is my heart rate normal?") # Turn 2: Fast Cache Hit!
+docs = lc_retriever.invoke("I have chest pain")           # Turn 1: Slow DB Search
+docs = lc_retriever.invoke("Is my heart rate normal?")    # Turn 2: Fast Cache Hit!
 ```
 
 ### 2. Using PostgreSQL for Production
@@ -125,3 +138,9 @@ This library is the official implementation of the architecture proposed in:
   year={2026}
 }
 ```
+
+---
+
+## 📜 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
