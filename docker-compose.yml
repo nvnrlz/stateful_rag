@@ -1,0 +1,11 @@
+version: '3.8'
+services:
+  postgres-state:
+    image: pgvector/pgvector:pg16
+    container_name: stateful_rag_db
+    environment:
+      POSTGRES_USER: rag_user
+      POSTGRES_PASSWORD: rag_password
+      POSTGRES_DB: rag_state
+    ports:
+      - "5432:5432"
