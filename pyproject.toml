@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "stateful-rag"
-version = "0.3.0"
+version = "0.4.0"
 description = "Sustainable, O(1) memory caching for multi-turn RAG using PostgreSQL."
 requires-python = ">=3.10"
 dependencies = [
@@ -14,5 +14,7 @@ dependencies = [
     "numpy>=1.24.0",
     "langchain-core>=0.1.0",
     "pydantic>=2.0.0",
-    "sentence-transformers>=2.2.2"
+    "sentence-transformers>=2.2.2",
+    "llama-index-core>=0.10.0",
+    "streamlit>=1.30.0"
 ]

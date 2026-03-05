@@ -1,2 +1,4 @@
 from .langchain_wrapper import StatefulLangChainRetriever
-__all__ = ["StatefulLangChainRetriever"]
+from .llamaindex_wrapper import StatefulLlamaIndexRetriever
+
+__all__ = ["StatefulLangChainRetriever", "StatefulLlamaIndexRetriever"]
