@@ -3,6 +3,7 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 from stateful_rag.retriever import StatefulRetriever
 from stateful_rag.stores.memory import InMemoryStateStore
+from stateful_rag.config import StatefulRAGConfig, SafetyMode
 
 print("Loading local embedding model (all-MiniLM-L6-v2)...")
 model = SentenceTransformer('all-MiniLM-L6-v2')
@@ -41,12 +42,23 @@ def mock_heavy_main_db_search(query: str) -> list[dict]:
 
 
 if __name__ == "__main__":
-    store = InMemoryStateStore()
+    # MiniLM emits 384-dim vectors; the config must match or dimension validation
+    # rejects them. BALANCED mode serves from cache (fast) while shadow-sampling
+    # for divergence; switch to STRICT for verify-on-every-hit clinical safety.
+    config = StatefulRAGConfig(
+        embedding_dim=384,
+        embedding_model="all-MiniLM-L6-v2",
+        drift_threshold=DRIFT_THRESHOLD,
+        per_doc_floor=0.2,
+        safety_mode=SafetyMode.BALANCED,
+        cache_ttl_seconds=0,
+    )
+    store = InMemoryStateStore(expected_dim=384)
     retriever = StatefulRetriever(
         state_store=store,
         main_retriever_fn=mock_heavy_main_db_search,
         embed_fn=real_embed_fn,
-        drift_threshold=DRIFT_THRESHOLD
+        config=config,
     )
     session_id = "patient_777"
     print("\n" + "=" * 80)
@@ -67,5 +79,7 @@ if __name__ == "__main__":
         docs = retriever.retrieve(user_input, session_id, current_turn=turn_idx)
         latency = (time.time() - start_time) * 1000
 
+        top = docs[0]
         print(f"⏱️  Latency: {latency:.2f} ms")
-        print(f"📄 Retrieved Top Context: {docs[0]['content'] if isinstance(docs[0], dict) else docs[0]}")
+        print(f"🧭 Route: {top.get('_route')} (source={top.get('_source')}, score={top.get('_score')})")
+        print(f"📄 Retrieved Top Context: {top.get('content', top)}")

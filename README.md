@@ -4,17 +4,21 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![PostgreSQL + pgvector](https://img.shields.io/badge/PostgreSQL-pgvector-blue.svg)](https://github.com/pgvector/pgvector)
 
-**Sustainable, $\mathcal{O}(1)$ memory caching for multi-turn Retrieval-Augmented Generation (RAG).**
+**A measured, auditable, fail-open caching layer for multi-turn Retrieval-Augmented Generation (RAG).**
 
-**Cut your vector database costs and reduce system latency by up to 135x.**
+StatefulRAG reduces redundant vector-database traffic on multi-turn conversations by caching a session's retrieved context — **without silently trading away retrieval quality.** Every cache decision is scored, audited, and (in the default safety mode) verified against the authoritative database, so the cache can never quietly hide a result the main database would have returned.
+
+---
+
+## ⚠️ Clinical-use disclaimer
+
+This library is **infrastructure**, not a medical device. It does not diagnose, triage, or make clinical decisions. If you deploy it in software that influences patient care, that software is very likely a regulated **Software as a Medical Device** (FDA SaMD / EU MDR) and requires clinical validation, a quality-management system, and regulatory clearance. The engineering controls here (encryption, audit, fail-open routing, divergence measurement) are necessary groundwork — **not** a substitute for that process. See [`docs/SAFETY.md`](docs/SAFETY.md).
 
 ---
 
 ## 📖 About
 
-StatefulRAG is the official open-source implementation of the caching and routing architecture proposed in the research paper: **"Stateful, Multilingual Medical Graph-RAG Framework for Sustainable and Iterative Clinical Triage"** (Kamalakannan et al., 2026).
-
-While originally designed to solve critical bottlenecks in clinical decision support systems (CDSS) specifically **extreme system latency**, **cross-lingual AI hallucinations**, and **unstructured generative guessing**, this library abstracts those solutions into a **domain-agnostic framework**. Whether you are building medical triage agents, legal research assistants, or customer support bots, StatefulRAG provides a strictly auditable, highly constrained, and environmentally sustainable ("Green AI") memory layer for multi-turn conversations.
+StatefulRAG accompanies the research paper **"Stateful, Multilingual Medical Graph-RAG Framework for Sustainable and Iterative Clinical Triage"** (Kamalakannan et al., 2026). The original idea — caching a session's retrieved sub-graph to avoid repeated exhaustive searches — is preserved here, but the implementation has been hardened for backend use: the cache is treated as a *hint that must be verified*, not a replacement for retrieval.
 
 **Authors & Researchers:**
 - **Naveen Kamalakannan** (TechZilla Solutions)
@@ -23,32 +27,31 @@ While originally designed to solve critical bottlenecks in clinical decision sup
 
 ---
 
-## 🚨 The Problem: Multi-Turn RAG is Unsustainable
+## 🧠 How it works
 
-Standard conversational RAG agents are **stateless**. For every multi-turn follow-up question a user asks, the system must re-embed the entire chat history and execute a massive $\mathcal{O}(N)$ similarity search across millions of vectors.
+For each turn the engine embeds the query and searches the session cache:
 
-In high-traffic deployments, this continuous redundant querying results in **extreme latency**, **prohibitive cloud GPU costs**, and a **massive carbon footprint**.
+- **Cold start / cache miss** → query the authoritative main vector DB (Pinecone, Qdrant, pgvector, …), then cache the result with its embedding, model tag, and timestamp.
+- **Context drift** → if the best cached similarity is below `drift_threshold`, the cache is *broken* and the main DB is queried again. Off-topic cached docs are also dropped via a `per_doc_floor`.
+- **Cache hit** → behaviour depends on the **safety mode** (below).
 
----
+Every returned document carries provenance: `_route`, `_source`, `_score`, `_turn_added`. Every decision emits a structured **audit record** (no raw query text is stored — only a salted hash).
 
-## 💡 The Solution: Stateful Caching & Constrained Re-Analysis
+### Safety modes
 
-StatefulRAG introduces a robust **memory middleware layer** backed by PostgreSQL + pgvector (or in-memory NumPy for local testing).
-
-- **Turn 1 (Cold Start):** Queries your heavy, main Vector DB (Pinecone, Qdrant, etc.) and **caches** the retrieved semantic sub-graph to PostgreSQL.
-- **Turn 2+ (Cache Hit):** **Bypasses the main DB entirely.** Executes lightning-fast "constrained re-analysis" directly on the PostgreSQL localized cache.
-- **Context Drift Fallback:** If the user abruptly changes topics (e.g., from "chest pain" to "billing questions"), the system detects a drop in semantic similarity, **safely breaks the cache**, and re-queries the main database to prevent AI hallucinations.
-
----
-
-## 📊 Validated Benchmarks (The "Green AI" Proof)
-
-Derived from our published clinical triage research:
-
-| Metric | Stateless RAG (Standard) | StatefulRAG (PostgreSQL) | Speedup |
+| Mode | On a cache hit | Latency | When to use |
 |---|---|---|---|
-| Turn 1 (Cold DB Search) | ~1270 ms | ~1270 ms | 1x |
-| Turn 2 (Follow-up Query) | ~1450 ms | ~9.4 ms | **~135x** |
+| `STRICT` *(default)* | Runs a fresh retrieval, measures **divergence** vs the cache, serves cache only if within `max_divergence`; otherwise **fails open** to fresh results. | No win on hits, full safety | Clinical / high-stakes |
+| `BALANCED` | Serves cache, **shadow-samples** a fraction of hits to monitor divergence. | Win on most hits, live safety net | After STRICT data shows low divergence |
+| `FAST` | Serves cache directly. | Max win, no safety net | Non-clinical workloads |
+
+The recommended path is to **start in `STRICT`**, watch the divergence metric on real traffic, and only relax to `BALANCED`/`FAST` once the data justifies it.
+
+---
+
+## 📊 Benchmarks — read the methodology
+
+Caching can reduce follow-up latency substantially when a hit avoids an exhaustive main-DB search, but the magnitude is entirely workload-dependent (corpus size, index type, network, embedding cost). **Run the included harness against your own stack and index before quoting any number.** The PostgreSQL path requires the HNSW index created by [`init_db.py`](init_db.py); without it, pgvector does an exact sequential scan and the latency advantage disappears. We deliberately do not headline a fixed "Nx" figure here, because it is not reproducible without the original paper's specific corpus and hardware.
 
 ---
 
@@ -56,86 +59,114 @@ Derived from our published clinical triage research:
 
 ### Installation
 
-**Core framework** (lightweight - SQLAlchemy, pgvector, NumPy, LangChain, LlamaIndex):
-
 ```bash
-pip install stateful-rag
+pip install stateful-rag                 # core (in-memory + Postgres)
+pip install "stateful-rag[frameworks]"   # + LangChain & LlamaIndex wrappers
+pip install "stateful-rag[demo]"         # + Sentence-Transformers & Streamlit
 ```
 
-**With demo extras** (adds Sentence-Transformers + Streamlit for running examples):
-
-```bash
-pip install "stateful-rag[demo]"
-```
-
-### 1. Framework Integrations (LangChain & LlamaIndex)
-
-StatefulRAG works natively with your existing pipelines. Just wrap your core retriever.
-
-**Using LangChain:**
+### Core usage
 
 ```python
-from stateful_rag.wrappers import StatefulLangChainRetriever
-from stateful_rag.stores.memory import InMemoryStateStore  # Switch to PostgresStateStore for production
-from stateful_rag.retriever import StatefulRetriever
-
-# 1. Setup your state store
-store = InMemoryStateStore()
-
-# 2. Initialize the core engine with your existing DB fetcher
-core_retriever = StatefulRetriever(
-    state_store=store,
-    main_retriever_fn=my_pinecone_search,
-    embed_fn=my_openai_embedder,
-    drift_threshold=0.35  # Safety threshold
+import os
+from stateful_rag import (
+    StatefulRetriever, StatefulRAGConfig, SafetyMode, InMemoryStateStore,
 )
 
-# 3. Wrap it for LangChain LCEL!
-lc_retriever = StatefulLangChainRetriever(
-    stateful_retriever=core_retriever,
-    session_id="user_123"
+config = StatefulRAGConfig(
+    embedding_dim=1536,                 # MUST match your embedder's output
+    embedding_model="text-embedding-3-small",
+    drift_threshold=0.85,
+    safety_mode=SafetyMode.STRICT,      # verify every cache hit
 )
 
-docs = lc_retriever.invoke("I have chest pain")           # Turn 1: Slow DB Search
-docs = lc_retriever.invoke("Is my heart rate normal?")    # Turn 2: Fast Cache Hit!
+retriever = StatefulRetriever(
+    state_store=InMemoryStateStore(expected_dim=1536),
+    main_retriever_fn=my_pinecone_search,   # Callable[[str], list[dict]]
+    embed_fn=my_openai_embedder,            # Callable[[str], list[float]]
+    config=config,
+    authorizer=lambda session_id, principal: principal == owner_of(session_id),
+)
+
+docs = retriever.retrieve("I have chest pain", session_id="user_123",
+                          current_turn=1, principal="user_123")
+print(docs[0]["_route"], docs[0]["_score"])   # e.g. "main_db", None
 ```
 
-### 2. Using PostgreSQL for Production
+### PostgreSQL for production
 
-Swap out the `InMemoryStateStore` for persistent, scalable caching across server restarts.
+Use a `sessionmaker` (request-scoped sessions, **not** a single shared session) and field-level encryption:
 
 ```python
-from stateful_rag.stores import PostgresStateStore
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from stateful_rag import PostgresStateStore, PostgresAuditSink, ContentCipher
 
-# Note: Use os.environ.get("DATABASE_URL") in real production environments!
-engine = create_engine("postgresql+psycopg://rag_user:rag_password@localhost:5433/rag_state")
-db_session = sessionmaker(bind=engine)()
+factory = sessionmaker(bind=create_engine(os.environ["DATABASE_URL"]))
+store = PostgresStateStore(factory, cipher=ContentCipher())   # key from env
+audit = PostgresAuditSink(factory)
 
-production_store = PostgresStateStore(db_session=db_session)
+retriever = StatefulRetriever(store, my_search, my_embedder,
+                              config=config, audit_sink=audit, authorizer=my_authz)
 ```
+
+Initialise the schema + HNSW index once: `DATABASE_URL=... python init_db.py`.
 
 ---
 
-## 🖥️ Interactive Demo (The Doctor Dashboard)
+## 🔐 Security & compliance
 
-Run the Streamlit UI locally to visualize the "Context Drift" safety mechanism in real-time:
+- **Encryption at rest** — cached content is encrypted with `ContentCipher` (Fernet/AES). Set `STATEFUL_RAG_ENCRYPTION_KEY`; without it the store warns and runs in plaintext. *Residual risk:* embeddings stay unencrypted to remain searchable — mitigate with DB-level encryption and strict access control.
+- **Session isolation** — `session_id` is client-supplied and is **not** trusted alone. Provide an `authorizer` to enforce that the calling principal owns the session (closes the IDOR hole).
+- **Retention & erasure** — `cache_ttl_seconds` ignores/excludes stale rows on read; [`scripts/purge_expired.py`](scripts/purge_expired.py) deletes them; `store.delete_session(id)` implements right-to-erasure.
+- **Audit trail** — every decision is recorded (route, scores, divergence, latency, model) with a **salted hash** of the query, never the raw text.
+
+See [`.env.example`](.env.example) for all configuration variables.
+
+---
+
+## 📐 Measuring retrieval quality (divergence harness)
+
+Trust in a cache is empirical. The eval harness replays conversations and compares cache-served results against a fresh authoritative search, reporting recall, precision, and Jaccard divergence:
+
+```python
+from stateful_rag.eval import EvaluationHarness, EvalScenario
+
+report = EvaluationHarness(retriever).run([
+    EvalScenario("patient-1", ["chest pain", "is my heart rate normal", "I feel dizzy"]),
+])
+print(report.summary())   # mean_recall / mean_divergence / worst_divergence on cache hits
+```
+
+Wire this into CI against golden clinical scenarios so retrieval-quality regressions fail the build.
+
+---
+
+## 🖥️ Interactive demo
 
 ```bash
-git clone https://github.com/naveenkamalakannan/stateful-rag.git
-cd stateful-rag
 pip install -e ".[demo]"
 streamlit run examples/demo_app.py
 ```
 
-![Doctor Dashboard — Showing Cache Hits, Context Drift Detection, and Live Audit Trace](docs/doctor_dashboard_screenshot.png)
+![Doctor Dashboard](docs/doctor_dashboard_screenshot.png)
+
+---
+
+## ✅ Tests
+
+```bash
+pip install -e ".[test]"
+pytest                                   # unit tests (no DB needed)
+# Postgres integration tests (optional):
+export STATEFUL_RAG_TEST_DATABASE_URL=postgresql+psycopg://USER:PASS@localhost:5433/rag_state
+export STATEFUL_RAG_EMBED_DIM=8
+pytest tests/test_postgres.py
+```
 
 ---
 
 ## 📚 Academic Citation
-
-This library is the official implementation of the architecture proposed in:
 
 > **"Stateful, Multilingual Medical Graph-RAG Framework for Sustainable and Iterative Clinical Triage"**
 > N. Kamalakannan, A. Jogekar, U. Haider (2026).
@@ -152,4 +183,4 @@ This library is the official implementation of the architecture proposed in:
 
 ## 📜 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT — see [LICENSE](LICENSE).

@@ -5,6 +5,7 @@ import streamlit as st
 from sentence_transformers import SentenceTransformer
 from stateful_rag.retriever import StatefulRetriever
 from stateful_rag.stores.memory import InMemoryStateStore
+from stateful_rag.config import StatefulRAGConfig, SafetyMode
 
 # --- Page Configuration ---
 st.set_page_config(page_title="StatefulRAG: Clinical Triage", layout="wide")
@@ -35,12 +36,20 @@ def load_engine():
         results.sort(key=lambda x: x["sim"], reverse=True)
         return [{"content": res["doc"]["content"]} for res in results[:2]]
 
-    store = InMemoryStateStore()
+    config = StatefulRAGConfig(
+        embedding_dim=384,
+        embedding_model="all-MiniLM-L6-v2",
+        drift_threshold=0.35,
+        per_doc_floor=0.2,
+        safety_mode=SafetyMode.BALANCED,
+        cache_ttl_seconds=0,
+    )
+    store = InMemoryStateStore(expected_dim=384)
     retriever = StatefulRetriever(
         state_store=store,
         main_retriever_fn=mock_heavy_main_db_search,
         embed_fn=real_embed_fn,
-        drift_threshold=0.35
+        config=config,
     )
     return retriever
 
@@ -83,29 +92,32 @@ with col_chat:
                 )
                 latency_ms = (time.time() - start_time) * 1000
 
-                top_context = docs[0]['content'] if isinstance(docs[0], dict) else docs[0]
+                top = docs[0] if docs else {}
+                top_context = top.get('content', top) if isinstance(top, dict) else top
+                route = top.get('_route', 'unknown') if isinstance(top, dict) else 'unknown'
+                score = top.get('_score') if isinstance(top, dict) else None
                 response_text = f"**Extracted Clinical Context:**\n> {top_context}"
                 st.markdown(response_text)
                 st.session_state.messages.append({"role": "assistant", "content": response_text})
 
-                # Determine State based on Latency Profile
-                if latency_ms > 1000:
-                    if st.session_state.current_turn == 1:
-                        state_type = "Cold Start (Main DB)"
-                        color = "🔴"
-                    else:
-                        state_type = "Context Drift Detected (Main DB)"
-                        color = "⚠️"
-                else:
-                    state_type = "Cache Hit (Constrained Re-Analysis)"
-                    color = "🟢"
+                # Determine state from the AUTHORITATIVE route decision (not latency).
+                route_display = {
+                    "main_db": ("Cold Start (Main DB)", "🔴"),
+                    "drift_break": ("Context Drift Detected (Main DB)", "⚠️"),
+                    "cache_hit": ("Cache Hit", "🟢"),
+                    "cache_hit_verified": ("Cache Hit (Verified vs Main DB)", "🟢"),
+                    "fail_open": ("Failed Open to Main DB (cache disagreed)", "⚠️"),
+                }
+                state_type, color = route_display.get(route, (route, "ℹ️"))
 
                 st.session_state.audit_logs.append({
                     "turn": st.session_state.current_turn,
                     "query": prompt,
                     "latency": latency_ms,
                     "state": state_type,
-                    "color": color
+                    "color": color,
+                    "route": route,
+                    "score": score,
                 })
 
                 st.session_state.current_turn += 1

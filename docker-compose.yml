@@ -1,11 +1,21 @@
-version: '3.8'
 services:
   postgres-state:
     image: pgvector/pgvector:pg16
     container_name: stateful_rag_db
     environment:
-      POSTGRES_USER: rag_user
-      POSTGRES_PASSWORD: rag_password
-      POSTGRES_DB: rag_state
+      # Provide these via a .env file or your shell; no secrets are baked in.
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-rag_state}
     ports:
-      - "5433:5432"
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:

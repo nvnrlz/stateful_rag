@@ -1,5 +1,11 @@
-from .base import BaseStateStore
+from .base import BaseStateStore, CachedHit
 from .memory import InMemoryStateStore
-from .postgres import PostgresStateStore
+from .postgres import PostgresStateStore, PostgresAuditSink
 
-__all__ = ["BaseStateStore", "InMemoryStateStore", "PostgresStateStore"]
+__all__ = [
+    "BaseStateStore",
+    "CachedHit",
+    "InMemoryStateStore",
+    "PostgresStateStore",
+    "PostgresAuditSink",
+]

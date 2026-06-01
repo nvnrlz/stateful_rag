@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ENT AI Receptionist — Test Console</title>
+<style>
+  :root { --bg:#0f172a; --panel:#1e293b; --muted:#94a3b8; --line:#334155;
+          --user:#2563eb; --ai:#334155; --ok:#16a34a; --bad:#dc2626; --warn:#d97706; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+         background:var(--bg); color:#e2e8f0; height:100vh; display:flex; flex-direction:column; }
+  header { padding:12px 18px; background:var(--panel); border-bottom:1px solid var(--line);
+           display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  header h1 { font-size:16px; margin:0; }
+  .badge { font-size:11px; padding:2px 8px; border-radius:10px; background:#0b1220; color:var(--muted); }
+  .disclaimer { background:#3b2f12; color:#fcd34d; font-size:12px; padding:6px 18px; border-bottom:1px solid var(--line); }
+  main { flex:1; display:flex; min-height:0; }
+  #chat { flex:1; display:flex; flex-direction:column; min-width:0; }
+  #log { flex:1; overflow-y:auto; padding:18px; display:flex; flex-direction:column; gap:14px; }
+  .msg { max-width:760px; }
+  .msg.user { align-self:flex-end; }
+  .bubble { padding:10px 14px; border-radius:12px; line-height:1.45; white-space:pre-wrap; }
+  .user .bubble { background:var(--user); color:#fff; border-bottom-right-radius:3px; }
+  .ai .bubble { background:var(--ai); border-bottom-left-radius:3px; }
+  .ai.escalate .bubble { background:#7f1d1d; border:1px solid #ef4444; }
+  .meta { font-size:11px; color:var(--muted); margin-top:5px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .cite { font-size:11px; color:#a5b4fc; margin-top:4px; }
+  .verdict { display:inline-flex; gap:6px; margin-top:6px; }
+  .verdict button { border:1px solid var(--line); background:#0b1220; color:#e2e8f0;
+                    border-radius:8px; padding:3px 10px; cursor:pointer; font-size:12px; }
+  .verdict button.ok.sel { background:var(--ok); border-color:var(--ok); color:#fff; }
+  .verdict button.bad.sel { background:var(--bad); border-color:var(--bad); color:#fff; }
+  .verdict button:hover { border-color:#64748b; }
+  #composer { display:flex; gap:8px; padding:12px 18px; border-top:1px solid var(--line); background:var(--panel); }
+  #composer input { flex:1; padding:10px 12px; border-radius:10px; border:1px solid var(--line);
+                    background:#0b1220; color:#e2e8f0; font-size:14px; }
+  #composer button { padding:10px 18px; border:0; border-radius:10px; background:var(--user); color:#fff; cursor:pointer; }
+  #composer button:disabled { opacity:.5; cursor:default; }
+  aside { width:300px; border-left:1px solid var(--line); background:var(--panel); padding:16px; overflow-y:auto; }
+  aside h2 { font-size:13px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin:0 0 8px; }
+  aside textarea, aside select, aside input { width:100%; background:#0b1220; color:#e2e8f0;
+        border:1px solid var(--line); border-radius:8px; padding:8px; font-size:13px; margin-bottom:10px; font-family:inherit; }
+  aside textarea { resize:vertical; min-height:70px; }
+  aside button { width:100%; padding:10px; border:0; border-radius:8px; background:var(--ok); color:#fff; cursor:pointer; font-size:14px; }
+  .rating { display:flex; gap:6px; margin-bottom:10px; }
+  .rating span { cursor:pointer; font-size:22px; color:#475569; }
+  .rating span.on { color:#fbbf24; }
+  .note { font-size:11px; color:var(--muted); margin-top:6px; }
+  /* Consent modal */
+  #consent { position:fixed; inset:0; background:rgba(2,6,23,.85); display:flex; align-items:center; justify-content:center; z-index:10; }
+  #consent .card { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:24px; max-width:520px; }
+  #consent h2 { margin-top:0; }
+  #consent label { display:flex; gap:8px; align-items:flex-start; font-size:13px; margin:14px 0; }
+  #consent .row { display:flex; gap:8px; }
+  #consent button { padding:10px 16px; border:0; border-radius:8px; background:var(--user); color:#fff; cursor:pointer; }
+  #consent button:disabled { opacity:.4; cursor:default; }
+  .hidden { display:none !important; }
+  .toast { position:fixed; bottom:18px; left:50%; transform:translateX(-50%); background:#0b1220;
+           border:1px solid var(--line); padding:8px 16px; border-radius:10px; font-size:13px; opacity:0; transition:opacity .2s; }
+  .toast.show { opacity:1; }
+</style>
+</head>
+<body>
+  <div id="consent">
+    <div class="card">
+      <h2>🩺 ENT AI Receptionist — Test Console</h2>
+      <p style="font-size:13px;color:var(--muted)">
+        This is an <b>experimental test tool</b> for a supervised study. It does
+        <b>not</b> provide a diagnosis and must <b>not</b> be used for real medical
+        decisions. Conversations are logged for research evaluation only.
+      </p>
+      <div class="row">
+        <select id="role">
+          <option value="mbbs">Reviewer: MBBS student</option>
+          <option value="ent_pg">Reviewer: ENT post-graduate</option>
+        </select>
+        <input id="reviewerId" placeholder="Reviewer ID (optional)" />
+      </div>
+      <label><input type="checkbox" id="agree" />
+        I understand this is a test only, will not be used for real care, and I
+        consent to my interactions being recorded for this study.</label>
+      <button id="startBtn" disabled>Start test</button>
+    </div>
+  </div>
+
+  <header>
+    <h1>🩺 ENT AI Receptionist</h1>
+    <span class="badge" id="provBadge">…</span>
+    <span class="badge" id="kbBadge">…</span>
+    <span class="badge" id="sessBadge"></span>
+  </header>
+  <div class="disclaimer" id="disc">Test only — not a diagnosis.</div>
+
+  <main>
+    <section id="chat">
+      <div id="log"></div>
+      <div id="composer">
+        <input id="input" placeholder="Describe the patient's ENT symptom…" autocomplete="off" disabled />
+        <button id="send" disabled>Send</button>
+      </div>
+    </section>
+    <aside>
+      <h2>Final feedback</h2>
+      <div class="note">Leave overall feedback once the conversation is done.</div>
+      <div class="rating" id="rating" title="Overall rating">
+        <span data-v="1">★</span><span data-v="2">★</span><span data-v="3">★</span><span data-v="4">★</span><span data-v="5">★</span>
+      </div>
+      <textarea id="overall" placeholder="Overall feedback about this test…"></textarea>
+      <textarea id="enh" placeholder="Enhancements you'd like to see…"></textarea>
+      <button id="submitFb">Submit final feedback</button>
+      <div class="note" id="fbNote"></div>
+    </aside>
+  </main>
+  <div class="toast" id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let SESSION = null, ROLE = "mbbs", REVIEWER = null, RATING = null;
+
+function toast(msg) {
+  const t = $("toast"); t.textContent = msg; t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 1800);
+}
+async function api(path, body) {
+  const r = await fetch(path, {
+    method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body)
+  });
+  if (!r.ok) { const e = await r.json().catch(()=>({detail:r.statusText})); throw new Error(e.detail || r.statusText); }
+  return r.json();
+}
+
+async function loadHealth() {
+  try {
+    const h = await (await fetch("/health")).json();
+    $("provBadge").textContent = "embed: " + h.embedding_model + (h.offline ? " (offline)" : "");
+    $("kbBadge").textContent = h.knowledge_chunks + " chunks";
+  } catch (e) { $("provBadge").textContent = "backend offline"; }
+}
+
+function addUser(text) {
+  const d = document.createElement("div"); d.className = "msg user";
+  d.innerHTML = `<div class="bubble"></div>`;
+  d.querySelector(".bubble").textContent = text;
+  $("log").appendChild(d); scrollDown();
+}
+
+function addAI(res) {
+  const d = document.createElement("div");
+  d.className = "msg ai" + (res.action === "escalate" ? " escalate" : "");
+  const bubble = document.createElement("div"); bubble.className = "bubble"; bubble.textContent = res.reply;
+  d.appendChild(bubble);
+
+  if (res.citations && res.citations.length) {
+    const c = document.createElement("div"); c.className = "cite";
+    c.textContent = "📚 " + res.citations.join("  •  ");
+    d.appendChild(c);
+  }
+  const meta = document.createElement("div"); meta.className = "meta";
+  const tags = [];
+  if (res.area && res.area !== "unclear") tags.push(res.area);
+  if (res.retrieval_route) tags.push("route: " + res.retrieval_route);
+  if (res.red_flags && res.red_flags.length) tags.push("🚑 " + res.red_flags.join(","));
+  if (res.urgent_flags && res.urgent_flags.length) tags.push("⏱️ urgent: " + res.urgent_flags.join(","));
+  meta.textContent = tags.join("  ·  ");
+  d.appendChild(meta);
+
+  // Per-response correct / wrong verdict buttons.
+  if (res.turn && res.turn > 0) {
+    const v = document.createElement("div"); v.className = "verdict";
+    const ok = document.createElement("button"); ok.className = "ok"; ok.textContent = "✓ Correct";
+    const bad = document.createElement("button"); bad.className = "bad"; bad.textContent = "✗ Wrong";
+    ok.onclick = () => sendVerdict(res, "correct", ok, bad);
+    bad.onclick = () => sendVerdict(res, "wrong", bad, ok);
+    v.appendChild(ok); v.appendChild(bad); d.appendChild(v);
+  }
+  $("log").appendChild(d); scrollDown();
+}
+
+async function sendVerdict(res, verdict, sel, other) {
+  try {
+    await api("/feedback", {
+      session_id: SESSION, turn: res.turn, verdict,
+      reviewer_role: ROLE, reviewer_id: REVIEWER,
+      assistant_text: res.reply, citations: res.citations || []
+    });
+    sel.classList.add("sel"); other.classList.remove("sel");
+    toast("Verdict saved: " + verdict);
+  } catch (e) { toast("Error: " + e.message); }
+}
+
+function scrollDown() { const l = $("log"); l.scrollTop = l.scrollHeight; }
+
+async function startSession() {
+  ROLE = $("role").value; REVIEWER = $("reviewerId").value.trim() || null;
+  try {
+    const res = await api("/session/start", { consent_acknowledged: true, principal: REVIEWER });
+    SESSION = res.session_id;
+    $("disc").textContent = res.disclaimer;
+    $("sessBadge").textContent = "session " + SESSION.slice(0, 8);
+    $("consent").classList.add("hidden");
+    $("input").disabled = false; $("send").disabled = false; $("input").focus();
+    const greet = document.createElement("div"); greet.className = "msg ai";
+    greet.innerHTML = `<div class="bubble"></div>`; greet.querySelector(".bubble").textContent = res.reply;
+    $("log").appendChild(greet);
+  } catch (e) { toast("Could not start: " + e.message); }
+}
+
+async function send() {
+  const text = $("input").value.trim(); if (!text || !SESSION) return;
+  $("input").value = ""; addUser(text);
+  $("send").disabled = true; $("input").disabled = true;
+  try {
+    const res = await api("/chat", { session_id: SESSION, text });
+    addAI(res);
+  } catch (e) { toast("Error: " + e.message); }
+  $("send").disabled = false; $("input").disabled = false; $("input").focus();
+}
+
+async function submitFeedback() {
+  if (!SESSION) { toast("Start a session first"); return; }
+  const overall = $("overall").value.trim(), enh = $("enh").value.trim();
+  if (!overall && !enh && !RATING) { toast("Add a comment, enhancement, or rating"); return; }
+  try {
+    await api("/session/feedback", {
+      session_id: SESSION, overall_comment: overall, enhancements: enh,
+      rating: RATING, reviewer_role: ROLE, reviewer_id: REVIEWER
+    });
+    $("fbNote").textContent = "✓ Thank you — feedback recorded.";
+    $("overall").value = ""; $("enh").value = "";
+  } catch (e) { toast("Error: " + e.message); }
+}
+
+// wire up
+$("agree").onchange = (e) => { $("startBtn").disabled = !e.target.checked; };
+$("startBtn").onclick = startSession;
+$("send").onclick = send;
+$("input").addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
+$("submitFb").onclick = submitFeedback;
+$("rating").querySelectorAll("span").forEach((s) => {
+  s.onclick = () => {
+    RATING = parseInt(s.dataset.v);
+    $("rating").querySelectorAll("span").forEach((x) =>
+      x.classList.toggle("on", parseInt(x.dataset.v) <= RATING));
+  };
+});
+loadHealth();
+</script>
+</body>
+</html>

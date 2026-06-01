@@ -20,3 +20,20 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+
+# Secrets
+.env
+*.key
+AI API Key*
+*.rtf
+.pytest_cache/
+
+# Data artifacts (built indexes, logs, reference corpus)
+data/
+*.npz
+*.npz.chunks.json
+feedback.jsonl
+RAG DB/
+
+# Local test suite (not published on V2_Beta)
+tests/
